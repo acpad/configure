@@ -70,7 +70,7 @@ class V2SettingsModule {
 }
 
 // The chromatic note calibration. Every note defines the the raw
-// velociy values to play the velocities 1 and 127.
+// velocity values to play the velocities 1 and 127.
 // The raw values are played by switching to a specific MIDI program.
 class V2SettingsCalibration extends V2SettingsModule {
   static type = 'calibration';
@@ -94,8 +94,9 @@ class V2SettingsCalibration extends V2SettingsModule {
     super.addSection(canvas, setting);
 
     // Find current program.
-    if (data.input.programs) {
-      data.input.programs.find((program) => {
+    const programs = data.input.channels?.[0].programs || data.input.programs;
+    if (programs) {
+      programs.find((program) => {
         if (!program.selected)
           return false;
 
@@ -137,6 +138,9 @@ class V2SettingsCalibration extends V2SettingsModule {
         const note = index + this.setting.chromatic.start;
         const velocity = this.#values[index][field];
         this.device.sendNote(0, note, velocity);
+        setTimeout(() => {
+          this.device.sendNoteOff(0, note);
+        }, 100);
 
         index++;
         if (index === this.#values.length)
@@ -148,6 +152,10 @@ class V2SettingsCalibration extends V2SettingsModule {
       changeProgram(this.#notes.program, this.#notes.bank);
       this.device.sendNote(0, note, velocity);
       changeProgram(this.#currentProgram.number, this.#currentProgram.bank);
+
+      setTimeout(() => {
+        this.device.sendNoteOff(0, note);
+      }, 100);
     };
 
     V2Web.addButtons(canvas, (buttons) => {
@@ -724,6 +732,99 @@ class V2SettingsDrum extends V2SettingsModule {
       drum.sensitivity = this.#sensitivity.value;
 
     this.setConfiguration(configuration, drum);
+  }
+}
+
+
+// JSON text field.
+class V2SettingsJSON extends V2SettingsModule {
+  static type = 'json';
+
+  #json = null;
+
+  // Named object wrapping the JSON data.
+  #name = null;
+
+  constructor(device, settings, canvas, setting, data) {
+    super(device, settings, setting);
+    super.addSection(canvas, setting);
+
+    if (setting.text) {
+      V2Web.addElement(canvas, 'p', (e) => {
+        e.classList.add('subtitle');
+        e.textContent = setting.text;
+      });
+    }
+
+    V2Web.addButtons(canvas, (buttons) => {
+      V2Web.addButton(buttons, (e) => {
+        e.textContent = 'Copy';
+
+        e.addEventListener('click', () => {
+          navigator.clipboard.writeText(this.#json.value);
+        });
+      });
+
+      V2Web.addButton(buttons, (e) => {
+        e.textContent = 'Paste';
+
+        e.addEventListener('click', () => {
+          navigator.clipboard.readText().then((data) => {
+            let jsonObject;
+
+            try {
+              jsonObject = JSON.parse(data);
+
+            } catch (error) {
+              return;
+            }
+
+            const entry = jsonObject['com.versioduo.sequencer.pattern'];
+            if (!entry)
+              return;
+
+            this.#json.value = JSON.stringify(jsonObject);
+          });
+        });
+      });
+    });
+
+    V2Web.addElement(canvas, 'textarea', (e) => {
+      this.#json = e;
+      e.classList.add('textarea');
+
+      if (setting.name) {
+        this.#name = setting.name;
+
+        e.value = JSON.stringify({
+          [setting.name]: this.getConfiguration(data.configuration)
+        });
+
+      } else
+        e.value = JSON.stringify(this.getConfiguration(data.configuration));
+    });
+
+    return Object.seal(this);
+  }
+
+  save(configuration) {
+    let pattern;
+
+    try {
+      pattern = JSON.parse(this.#json.value);
+
+      if (this.#name) {
+        if (!pattern[this.#name])
+          return;
+
+        pattern = pattern[this.#name];
+      }
+
+    } catch (error) {
+      return;
+    }
+
+    this.setConfiguration(configuration, pattern);
   }
 }
 
