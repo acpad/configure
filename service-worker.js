@@ -1,20 +1,13 @@
-// © Kay Sievers <kay@versioduo.com>, 2021-2022
-// SPDX-License-Identifier: Apache-2.0
-
 const name = 'configure';
-const version = 274;
+const version = 510;
 const files = [
   './',
-  'css/bulma-addons.css',
-  'css/bulma.min.css',
-  'css/debug.css',
-  'css/fontawesome.min.css',
   'css/fonts.css',
+  'css/style.css',
   'icons/logo-black.svg',
-  'icons/logo.png',
   'icons/logo.svg',
+  'js/V2App.js',
   'js/V2Configuration.js',
-  'js/V2Connection.js',
   'js/V2Debug.js',
   'js/V2Device.js',
   'js/V2Input.js',
@@ -22,13 +15,12 @@ const files = [
   'js/V2Log.js',
   'js/V2MIDI.js',
   'js/V2MIDISelect.js',
+  'js/V2Main.js',
   'js/V2Output.js',
   'js/V2Settings.js',
-  'js/V2Web.js',
-  'site.webmanifest',
+  'manifest.json',
   'webfonts/exo2-regular.woff2',
   'webfonts/fa-brands-400.woff2',
-  'webfonts/fa-regular-400.woff2',
   'webfonts/fa-solid-900.woff2'
 ];
 
@@ -50,14 +42,14 @@ self.addEventListener('install', (e) => {
     caches.open(name + '-' + version).then((cache) => {
       for (const file of files) {
         fetch(file, {
-            cache: 'no-cache'
-          })
+          cache: 'no-cache'
+        })
           .then((response) => {
             if (!response.ok)
               throw new Error('Status=' + response.status);
 
             return cache.put(file, response);
-          })
+          });
       }
     })
   );
@@ -81,8 +73,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request)
-    .then((response) => {
-      return response || fetch(e.request);
-    })
+      .then((response) => {
+        return response || fetch(e.request);
+      })
   );
 });

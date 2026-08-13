@@ -1,0 +1,15 @@
+{
+  "background_color": "black",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "icons/logo.svg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "name": "ACPAD configure",
+  "start_url": "./",
+  "scope": ".",
+  "theme_color": "black"
+}

@@ -1,17 +1,18 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 // Debug interface
-class V2Debug extends V2WebModule {
-  #device = null;
+class V2Debug extends V2AppSection {
   #element = null;
 
-  constructor(device) {
-    super('debug', 'Debug', 'Show the last reply');
-    this.#device = device;
+  constructor(app) {
+    super(app, 'debug', '--bug', 'Debug', 'Show the Device Reply');
+    Object.seal(this);
+  }
 
-    V2Web.addButtons(this.canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+  show(data) {
+    this.removeSection();
+    this.addSection();
+
+    new V2AppMenu(this.canvas, (menu) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Copy';
         e.addEventListener('click', () => {
           navigator.clipboard.writeText(this.#element.textContent);
@@ -19,29 +20,15 @@ class V2Debug extends V2WebModule {
       });
     });
 
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      V2Web.addElement(e, 'pre', (pre) => {
-        this.#element = pre;
-        pre.classList.add('has-background-white');
-      });
+    V2App.addElement(this.canvas, 'pre', (e) => {
+      e.style.overflowX = 'auto';
+      e.style.paddingRight = '0.5rem';
+      e.style.width = '100%';
+      e.textContent = '"com.versioduo.device": ' + JSON.stringify(data, null, '  ');
     });
+  }
 
-    this.#device.addNotifier('show', (data) => {
-      this.#element.textContent = '"com.versioduo.device": ' + JSON.stringify(data, null, '  ');
-    });
-
-    this.#device.addNotifier('reset', (data) => {
-      this.#element.textContent = '';
-    });
-
-    this.#device.addNotifier('show', (data) => {
-      this.attach();
-    });
-
-    this.#device.addNotifier('reset', () => {
-      this.detach();
-    });
-
-    return Object.seal(this);
+  reset() {
+    this.removeSection();
   }
 }

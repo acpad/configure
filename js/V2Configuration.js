@@ -1,112 +1,105 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
-class V2Configuration extends V2WebModule {
-  #device = null;
-  #tabs = null;
-  #info = Object.seal({
-    element: null
+class V2Configuration extends V2AppSection {
+  #tabs = Object.seal({
+    object: null,
+    current: null,
+    overview: Object.seal({
+      element: null
+    }),
+    edit: Object.seal({
+      element: null,
+      object: null,
+      notify: null,
+      timeout: null
+    }),
+    file: Object.seal({
+      element: null,
+      object: null,
+      notify: null,
+      timeout: null
+    })
   });
-  #settings = Object.seal({
-    element: null,
-    object: null
-  });
-  #system = Object.seal({
-    element: null,
-    object: null
-  });
 
-  constructor(device) {
-    super('configuration', 'Configuration', 'Setup, backup, restore, reset');
-    this.#device = device;
+  constructor(app) {
+    super(app, 'configuration', '--gear', 'Configuration', 'Edit, Backup, Restore, Reset');
+    Object.seal(this);
+  }
 
-    new V2WebTabs(this.canvas, (tabs) => {
-      this.#tabs = tabs;
+  show(data) {
+    this.removeSection();
+    this.addSection();
 
-      tabs.addTab('info', 'Information', (e) => {
-        this.#info.element = e;
+    new V2AppTabs(this.canvas, this.id, (tabs) => {
+      this.#tabs.object = tabs;
+
+      tabs.add('overview', '--book-open-reader', 'Overview', (e) => {
+        this.#tabs.overview.element = e;
       });
 
-      tabs.addTab('settings', 'Settings', (e) => {
-        this.#settings.element = e;
-        this.#settings.object = new V2ConfigurationSettings(device, this.#settings.element);
+      tabs.add('edit', '--sliders', 'Edit', (e) => {
+        this.#tabs.edit.element = e;
+        this.#tabs.edit.object = new V2ConfigurationEdit(this.app.main, this.#tabs.edit);
       });
 
-      tabs.addTab('system', 'System', (e) => {
-        this.#system.element = e;
-        this.#system.object = new V2ConfigurationSystem(device, this.#system.element);
+      tabs.add('file', '--file-code', 'File', (e) => {
+        this.#tabs.file.element = e;
+        this.#tabs.file.object = new V2ConfigurationFile(this.app.main, this.#tabs.file);
+      });
+
+      for (const [name, tab] of Object.entries(tabs.tabs))
+        this.addNavigation(tab.text, tab.id);
+
+      tabs.addNotifier((name) => {
+        this.#tabs.current = name;
       });
     });
 
-    this.#device.addNotifier('show', (data) => {
-      this.#tabs.resetTab('info');
-      this.#tabs.resetTab('settings');
-      this.#tabs.resetTab('system');
-
-      V2Web.addMarkup(this.#info.element, 2,
-        'In Settings, the device can be configured. Changes will not be stored ' +
-        'or modify the device\'s behavior until the Save button is pressed. Some ' +
-        'changes require a device reboot to become active.\n' +
-        'In System, the current configuration can be backed-up as a human ' +
+    V2App.addElement(this.#tabs.overview.element, 'header', (e) => {
+      V2App.addMarkup(e,
+        'The configuration can be edited and saved to the device. ' +
+        'Changes will not be stored or modify the device\'s behavior until the Save ' +
+        'button is pressed. Some changes require a device reboot to become active.\n' +
+        'The current configuration can be backed-up as a human ' +
         'readable text file. Or the device reset to its factory defaults.');
 
       if (data.help?.configuration) {
-        V2Web.addElement(this.#info.element, 'hr', (e) => {
-          e.classList.add('break');
-        });
-
-        V2Web.addMarkup(this.#info.element, 2, data.help.configuration);
+        V2App.addElement(e, 'hr');
+        V2App.addMarkup(e, data.help.configuration);
       }
-
-      this.#settings.object.show(data);
-      this.#system.object.show(data.configuration);
-
-      if (!this.#tabs.current)
-        this.#tabs.switchTab('info');
-
-      this.attach();
     });
 
-    this.#device.addNotifier('reset', () => {
-      this.#tabs.switchTab();
-      this.#settings.object.clear();
-      this.#system.object.clear();
-      this.#tabs.resetTab('info');
-      this.#tabs.resetTab('settings');
-      this.#tabs.resetTab('system');
+    this.#tabs.edit.object.show(data);
+    this.#tabs.file.object.show(data.configuration);
+    this.#tabs.object.switch(this.#tabs.current || 'overview');
+  }
 
-      this.detach();
-    });
-
-    return Object.seal(this);
+  reset() {
+    this.#tabs.edit.object?.clear();
+    this.#tabs.file.object?.clear();
+    this.#tabs.current = null;
+    this.removeSection();
   }
 
   register(module) {
-    this.#settings.object.register(module);
+    this.#tabs.edit.object.register(module);
   }
 }
 
-class V2ConfigurationSettings {
+class V2ConfigurationEdit {
   #device = null;
-  #canvas = null;
-
-  // List of all available/registered modules.
+  #tab = null;
   #modules = {};
+  #entries = [];
 
-  // List of all instantiated modules/sections.
-  #sections = [];
-
-  #notify = null;
-  #timeout = null;
-
-  constructor(device, canvas) {
+  constructor(device, tab) {
+    Object.seal(this);
     this.#device = device;
-    this.#canvas = canvas;
+    this.#tab = tab;
 
     this.register(V2SettingsCalibration);
-    this.register(V2SettingsColor);
+    this.register(V2SettingsColour);
     this.register(V2SettingsController);
     this.register(V2SettingsDrum);
+    this.register(V2SettingsFilter);
     this.register(V2SettingsJSON);
     this.register(V2SettingsNote);
     this.register(V2SettingsToggle);
@@ -115,8 +108,6 @@ class V2ConfigurationSettings {
     this.register(V2SettingsText);
     this.register(V2SettingsTitle);
     this.register(V2SettingsUSB);
-
-    return Object.seal(this);
   }
 
   register(module) {
@@ -124,19 +115,32 @@ class V2ConfigurationSettings {
   }
 
   show(data) {
-    const notify = this.#timeout !== null;
-    this.clear();
+    new V2AppMenu(this.#tab.element, (menu) => {
+      menu.addElement('button', (e) => {
+        e.classList.add('danger');
+        e.textContent = 'Erase';
+        e.addEventListener('click', () => {
+          this.#erase();
+        });
+      });
 
-    V2Web.addButtons(this.#canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Reboot';
         e.addEventListener('click', () => {
           this.#device.sendReboot();
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
-        e.classList.add('is-link');
+      menu.addElement('button', (e) => {
+        e.textContent = 'Refresh';
+        e.addEventListener('click', () => {
+          this.#tab.notify.clear();
+          this.#device.sendGetAll();
+        });
+      });
+
+      menu.addElement('button', (e) => {
+        e.classList.add('primary');
         e.textContent = 'Save';
         e.addEventListener('click', () => {
           this.save();
@@ -144,57 +148,68 @@ class V2ConfigurationSettings {
       });
     });
 
-    this.#notify = new V2WebNotify(this.#canvas);
+    if (this.#tab.notify)
+      this.#tab.element.appendChild(this.#tab.notify.element);
+    else
+      this.#tab.notify = new V2AppNotify(this.#tab.element);
 
-    if (this.#timeout !== null) {
-      this.#notify.success('Settings updated.');
-      clearTimeout(this.#timeout);
-      this.#timeout = null;
+    if (this.#tab.timeout !== null) {
+      this.#tab.notify.info('The configuration was updated.');
+      clearTimeout(this.#tab.timeout);
+      this.#tab.timeout = null;
     }
 
-    // USB is a core part of V2Device, andnot ex[licitley exported in the settings array.
-    const section = new this.#modules['usb'](this.#device, this, this.#canvas, null, data);
-    this.#sections.push(section);
+    V2App.addElement(this.#tab.element, 'ul', (cards) => {
+      cards.classList.add('cards');
 
-    // Iterate over the device's 'settings' entries. If we find a matching module,
-    // instantiate it and show its controls.
-    if (data.settings) {
-      for (const setting of data.settings) {
-        const module = this.#modules[setting.type];
-        if (!module)
-          continue;
+      // USB is a core part of V2Device, and not explicitly exported in the settings array.
+      V2App.addElement(cards, 'li', (c) => {
+        this.#entries.push(new this.#modules['usb'](this.#device, this, c, null, data));
+      });
 
-        if ('save' in module.prototype && !setting.path)
-          continue;
+      // Iterate over the device's 'settings' entries. If we find a matching module,
+      // instantiate it and show its controls.
+      if (data.settings) {
+        let card = null;
 
-        const section = new module(this.#device, this, this.#canvas, setting, data);
-        this.#sections.push(section);
+        for (const setting of data.settings) {
+          const module = this.#modules[setting.type];
+          if (!module)
+            continue;
+
+          if ('save' in module.prototype && !setting.path)
+            continue;
+
+          if (!card || setting.type === 'title')
+            card = V2App.addElement(cards, 'li');
+
+          this.#entries.push(new module(this.#device, this, card, setting, data));
+        }
       }
-    }
-
-    if (notify)
-      this.#notify.success('Configuration updated.');
+    });
   }
 
   clear() {
-    if (this.#timeout) {
-      clearTimeout(this.#timeout);
-      this.#timeout = null;
+    this.#tab.notify.clear();
+
+    if (this.#tab.timeout) {
+      clearTimeout(this.#tab.timeout);
+      this.#tab.timeout = null;
     }
 
-    for (const section of this.#sections)
-      if (section.clear)
-        section.clear();
+    for (const entry of this.#entries)
+      if (entry.clear)
+        entry.clear();
 
-    this.#sections = [];
+    this.#entries = [];
   }
 
   save() {
     const configuration = {};
 
-    for (const section of this.#sections)
-      if (section.save)
-        section.save(configuration);
+    for (const entry of this.#entries)
+      if (entry.save)
+        entry.save(configuration);
 
     this.#device.printDevice('Calling <b>writeConfiguration()</b> ');
     this.#device.sendRequest({
@@ -202,117 +217,96 @@ class V2ConfigurationSettings {
       'configuration': configuration
     });
 
-    this.#timeout = setTimeout(() => {
-      this.#timeout = null;
-      this.#notify.error('No reply from device. Changes might not be not saved.');
+    this.#tab.timeout = setTimeout(() => {
+      this.#tab.timeout = null;
+      this.#tab.notify.error('No reply from device. Changes might not be not saved.');
       this.#device.printDevice('No reply from device');
     }, 1000);
   }
+
+  // Factory reset.
+  #erase() {
+    this.#device.printDevice('Calling <b>eraseConfiguration()</b> command');
+    this.#device.sendRequest({
+      'method': 'eraseConfiguration'
+    });
+
+    this.#device.disconnect();
+  }
 }
 
-class V2ConfigurationSystem {
+class V2ConfigurationFile {
   #device = null;
-  #canvas = null;
-  #notify = null;
+  #tab = null;
   #elementJSON = null;
-  #timeout = null;
-  #maximized = false;
 
-  constructor(device, canvas) {
+  constructor(device, tab) {
+    Object.seal(this);
     this.#device = device;
-    this.#canvas = canvas;
-
-    return Object.seal(this);
+    this.#tab = tab;
   }
 
   show(data) {
-    const notify = this.#timeout !== null;
-    this.clear();
-
-    V2Web.addButtons(this.#canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+    new V2AppMenu(this.#tab.element, (menu) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Backup';
         e.addEventListener('click', () => {
-          this.#save();
+          this.#saveFile();
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Restore';
         e.addEventListener('click', () => {
+          this.#tab.notify.clear();
           this.#openFile();
         });
 
-        V2Web.addFileDrop(e, this.#canvas, ['is-focused', 'is-link', 'is-light'], (file) => {
+        V2App.addFileDrop(e, this.#tab.element, ['warn'], (file) => {
+          this.#tab.notify.clear();
           this.#readFile(file);
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
-        e.textContent = 'Erase';
-        e.addEventListener('click', () => {
-          this.#erase();
-        });
-      });
-
-      V2Web.addButton(buttons, (e) => {
-        e.classList.add('is-link');
+      menu.addElement('button', (e) => {
+        e.classList.add('primary');
         e.textContent = 'Save';
         e.addEventListener('click', () => {
+          this.#tab.notify.clear();
           this.#send();
         });
       });
     });
 
-    this.#notify = new V2WebNotify(this.#canvas);
+    if (this.#tab.notify)
+      this.#tab.element.appendChild(this.#tab.notify.element);
+    else
+      this.#tab.notify = new V2AppNotify(this.#tab.element);
 
-    V2Web.addElement(this.#canvas, 'textarea', (e) => {
+    if (this.#tab.timeout !== null) {
+      this.#tab.notify.info('The configuration was updated.');
+      clearTimeout(this.#tab.timeout);
+      this.#tab.timeout = null;
+    }
+
+    V2App.addElement(this.#tab.element, 'textarea', (e) => {
       this.#elementJSON = e;
-      e.classList.add('textarea');
       e.placeholder = 'No configuration loaded';
-      e.rows = 1;
       e.disabled = true;
-      e.addEventListener('click', (event) => {
-        this.#expand(event);
-      });
     });
 
     this.#elementJSON.value = JSON.stringify(data, null, '  ');
-    this.#resize();
+    this.#elementJSON.rows = this.#elementJSON.value.split('\n').length + 1;
     this.#elementJSON.disabled = false;
-
-    if (notify)
-      this.#notify.success('Configuration updated.');
   }
 
   clear() {
-    if (this.#timeout) {
-      clearTimeout(this.#timeout);
-      this.#timeout = null;
+    this.#tab.notify?.clear();
+
+    if (this.#tab.timeout) {
+      clearTimeout(this.#tab.timeout);
+      this.#tab.timeout = null;
     }
-  }
-
-  #resize() {
-    const lines = this.#elementJSON.value.split('\n').length;
-    if (this.#maximized) {
-      this.#elementJSON.rows = lines;
-
-    } else {
-      this.#elementJSON.style.height = 'initial';
-      this.#elementJSON.rows = Math.min(15, lines);
-    }
-  }
-
-  // Click to maximize, many-click to minimize.
-  #expand(event) {
-    if (this.#maximized && event.detail > 3) {
-      this.#elementJSON.setSelectionRange(1, 1);
-      this.#maximized = false;
-
-    } else if (!this.#maximized)
-      this.#maximized = true;
-
-    this.#resize();
   }
 
   // Parse the JSON text field and reformat it.
@@ -323,7 +317,7 @@ class V2ConfigurationSystem {
       configuration = JSON.parse(this.#elementJSON.value);
 
     } catch (error) {
-      this.#notify.warn(error.toString());
+      this.#tab.notify.warn(error.toString());
 
       // Try to find the position in the error string and place the cursor.
       const match = error.toString().match(/position (\d+)/);
@@ -340,7 +334,8 @@ class V2ConfigurationSystem {
   }
 
   // Save the current JSON text field to a file.
-  #save() {
+  #saveFile() {
+    this.#tab.notify.clear();
     const configuration = this.#parse();
     if (!configuration)
       return;
@@ -385,13 +380,12 @@ class V2ConfigurationSystem {
   #readFile(file) {
     const reader = new FileReader();
     reader.onload = (element) => {
-      this.#notify.clear();
 
       try {
         const config = JSON.parse(reader.result);
 
         if (!config.configuration) {
-          this.#notify.warn('No valid configuration found in file');
+          this.#tab.notify.warn('No valid configuration found in file');
           return;
         }
 
@@ -400,7 +394,7 @@ class V2ConfigurationSystem {
         this.#parse();
 
       } catch (error) {
-        this.#notify.warn('Unable to parse JSON from file');
+        this.#tab.notify.warn('Unable to parse JSON from file');
       }
     };
 
@@ -409,6 +403,7 @@ class V2ConfigurationSystem {
 
   // Load a JSON file into the text field.
   #openFile() {
+    // Create a temporary 'browse button' and trigger a file upload.
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,.txt,.conf';
@@ -418,9 +413,6 @@ class V2ConfigurationSystem {
     }, false);
 
     input.click();
-
-    this.#maximized = true;
-    this.#resize();
   }
 
   // Send the configuration to the device.
@@ -433,21 +425,11 @@ class V2ConfigurationSystem {
         'configuration': data
       });
 
-      this.#timeout = setTimeout(() => {
-        this.#timeout = null;
-        this.#notify.error('No reply from device. Configuration might not be not saved.');
+      this.#tab.timeout = setTimeout(() => {
+        this.#tab.timeout = null;
+        this.#tab.notify.error('No reply from device. Configuration might not be not saved.');
         this.#device.printDevice('No reply from device');
       }, 1000);
     }
-  }
-
-  // Factory reset.
-  #erase() {
-    this.#device.printDevice('Calling <b>eraseConfiguration()</b> command');
-    this.#device.sendRequest({
-      'method': 'eraseConfiguration'
-    });
-
-    this.#device.disconnect();
   }
 }

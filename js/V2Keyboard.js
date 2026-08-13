@@ -1,6 +1,3 @@
-// © Kay Sievers <kay@versioduo.com>, 2023
-// SPDX-License-Identifier: Apache-2.0
-
 // Draw keyboard-like rows of octaves.
 class V2Keyboard {
   handler = Object.seal({
@@ -14,11 +11,27 @@ class V2Keyboard {
   });
 
   #listener = null;
-  #octave = 3;
+
+  #notes = Object.seal({
+    start: 21,
+    count: 88,
+  });
+
+  #octave = Object.seal({
+    min: -2,
+    max: 7,
+    current: 3,
+  });
+
   #pads = null;
 
   constructor(element, noteStart, noteCount) {
+    Object.seal(this);
     this.#listener = new AbortController();
+    this.#notes.start = noteStart;
+    this.#notes.count = noteCount;
+    this.#octave.min = V2MIDI.Note.getOctave(noteStart);
+    this.#octave.max = V2MIDI.Note.getOctave(noteStart + noteCount - 1);
 
     // Remove any focus, the keyboard listens to key presses.
     document.activeElement.blur();
@@ -45,7 +58,7 @@ class V2Keyboard {
         return;
 
       const note = this.#handleKey(ev);
-      if (note != null)
+      if (note)
         this.handler.down(note);
     }, {
       signal: this.#listener.signal
@@ -63,23 +76,20 @@ class V2Keyboard {
     });
 
     // If the middle C is not in the given range of notes, switch to the octave of the first note.
-    if (V2MIDI.Note.getNote(this.#octave) < noteStart || V2MIDI.Note.getNote(this.#octave) > (noteStart + noteCount - 1))
-      this.#octave = V2MIDI.Note.getOctave(noteStart);
+    if (V2MIDI.Note.getNote(this.#octave.current) < noteStart || V2MIDI.Note.getNote(this.#octave.current) > (noteStart + noteCount - 1))
+      this.#octave.current = this.#octave.min;
 
-    const firstOctave = V2MIDI.Note.getOctave(noteStart);
-    const lastOctave = V2MIDI.Note.getOctave(noteStart + noteCount - 1);
     this.#pads = [];
 
-    this.#addOctave(element, firstOctave, noteStart % 12, Math.min(11, (noteStart % 12) + noteCount - 1));
-    if (lastOctave > firstOctave) {
-      for (let i = firstOctave + 1; i < lastOctave; i++)
+    this.#addOctave(element, this.#octave.min, noteStart % 12, Math.min(11, (noteStart % 12) + noteCount - 1));
+    if (this.#octave.max > this.#octave.min) {
+      for (let i = this.#octave.min + 1; i < this.#octave.max; i++)
         this.#addOctave(element, i, 0, 11);
 
-      this.#addOctave(element, lastOctave, 0, (noteStart + noteCount - 1) % 12);
+      this.#addOctave(element, this.#octave.max, 0, (noteStart + noteCount - 1) % 12);
     }
 
     this.#pads = Object.seal(this.#pads);
-    return Object.seal(this);
   }
 
   // Unregister from global document events.
@@ -150,25 +160,18 @@ class V2Keyboard {
         break;
 
       case 'KeyZ':
-        if (ev.type === 'keydown' && this.#octave > -2) {
-          this.#octave--;
-          if (this.#pads[V2MIDI.Note.getNote(this.#octave)])
-            this.#pads[V2MIDI.Note.getNote(this.#octave)].focus();
-
-          else
-            document.activeElement.blur();
-        }
+        if (ev.type === 'keydown' && this.#octave.current > this.#octave.min)
+          this.#octave.current--;
+        if (V2MIDI.Note.getNote(this.#octave.current) >= this.#notes.start)
+          this.#pads[V2MIDI.Note.getNote(this.#octave.current)].focus({ preventScroll: true });
+        else
+          this.#pads[this.#notes.start].focus({ preventScroll: true });
         return null;
 
       case 'KeyX':
-        if (ev.type === 'keydown' && this.#octave < 8) {
-          this.#octave++;
-          if (this.#pads[V2MIDI.Note.getNote(this.#octave)])
-            this.#pads[V2MIDI.Note.getNote(this.#octave)].focus();
-
-          else
-            document.activeElement.blur();
-        }
+        if (ev.type === 'keydown' && this.#octave.current < this.#octave.max)
+          this.#octave.current++;
+        this.#pads[V2MIDI.Note.getNote(this.#octave.current)].focus({ preventScroll: true });
         return null;
 
       case 'KeyC':
@@ -188,29 +191,35 @@ class V2Keyboard {
     if (index === null)
       return;
 
-    const note = V2MIDI.Note.getNote(this.#octave, index);
-    if (note > 127)
+    const note = V2MIDI.Note.getNote(this.#octave.current, index);
+    if (note < this.#notes.start || note > (this.#notes.start + this.#notes.count - 1))
       return;
 
     if (this.#pads[note])
-      this.#pads[note].focus();
+      this.#pads[note].focus({ preventScroll: true });
 
     return note;
   };
 
   #addOctave(element, octave, firstIndex, lastIndex) {
-    new V2WebField(element, (field) => {
-      for (let i = 0; i < 12; i++) {
-        field.addButton((e, p) => {
-          e.classList.add('keyboard-button');
-          p.classList.add('is-expanded');
+    new V2AppMenu(element, (menu) => {
+      menu.element.classList.add('bar');
+      menu.element.classList.add('full');
+      menu.element.classList.add('font-scale');
 
+      for (let i = 0; i < 12; i++) {
+        if (i < firstIndex || i > lastIndex) {
+          menu.addElement('span');
+          continue;
+        }
+
+        menu.addElement('button', (e) => {
+          e.classList.add('focusable');
           const note = V2MIDI.Note.getNote(octave, i);
           this.#pads[note] = e;
 
           e.textContent = V2MIDI.Note.getName(note);
-          if (V2MIDI.Note.isBlack(note))
-            e.classList.add('is-dark');
+          e.classList.add(V2MIDI.Note.isBlack(note) ? 'dark' : 'light');
 
           e.addEventListener('mousedown', () => {
             this.handler.down(note);
@@ -221,22 +230,18 @@ class V2Keyboard {
           });
 
           e.addEventListener('touchstart', (event) => {
-            e.classList.add('is-active');
             e.dispatchEvent(new MouseEvent('mousedown'));
           }, {
             passive: true
           });
 
           e.addEventListener('touchend', (event) => {
-            e.classList.remove('is-active');
             e.dispatchEvent(new MouseEvent('mouseup'));
             if (event.cancelable)
               event.preventDefault();
           });
-
-          if (i < firstIndex || i > lastIndex)
-            e.style.visibility = 'hidden';
         });
+
       }
     });
   };
