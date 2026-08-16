@@ -76,8 +76,8 @@ class V2Main extends V2Device {
 
   sendRequest(request) {
     // Requests and replies contain the device's current bootID.
-    if (this.#token);
-    request.token = this.#token;
+    if (this.#token)
+      request.token = this.#token;
 
     this.sendSystemExclusive({
       'com.versioduo.device': request
@@ -85,7 +85,7 @@ class V2Main extends V2Device {
   }
 
   sendGetAll() {
-    this.printDevice('Calling <b>getAll()</b>');
+    this.printDevice('Calling «getAll()»');
     this.sendRequest({
       'method': 'getAll'
     });
@@ -128,7 +128,7 @@ class V2Main extends V2Device {
 
   sendReboot(ports = false) {
     const method = ports ? 'rebootWithPorts' : 'reboot';
-    this.printDevice('Calling <b>' + method + '()</b>');
+    this.printDevice('Calling «' + method + '()»');
     this.sendRequest({
       'method': method
     });
@@ -136,7 +136,7 @@ class V2Main extends V2Device {
   }
 
   sendBootloader() {
-    this.printDevice('Calling <b>bootloader()</b>');
+    this.printDevice('Calling «bootloader()»');
     this.sendRequest({
       'method': 'bootloader'
     });
@@ -151,7 +151,7 @@ class V2Main extends V2Device {
     this.#data = data;
     this.canvas.appendChild(this.connection.element);
 
-    if (data.system.midi.passthrough && data.system.midi.transport === "usb") {
+    if (data.system.connection?.passthrough && data.system.connection.port === "usb") {
       new V2AppMenu(this.canvas, (menu) => {
         menu.addElement('span', (e) => {
           e.textContent = 'Passthrough';
@@ -166,15 +166,15 @@ class V2Main extends V2Device {
           }
 
           s.addEventListener('change', () => {
-            this.sendControlChange(0, this.#data.system.midi.passthrough.controller, Number(s.value));
+            this.sendControlChange(0, this.#data.system.connection.passthrough.controller, Number(s.value));
             this.#token = null;
+            this.#reset();
+            this.app.callSections('reset');
             this.sendGetAll();
 
             this.#timeout = setTimeout(() => {
               this.#timeout = null;
-              this.printDevice('Unable to connect to node address <b>#' + Number(s.value) + '</b>. Disconnecting ...');
-              this.#reset();
-              this.app.callSections('reset');
+              this.printDevice('Unable to connect to node address «#' + Number(s.value) + '». Disconnecting ...');
             }, 1000);
           });
         });
@@ -408,7 +408,7 @@ class V2Main extends V2Device {
 
   // Process the com.versioduo.device message reply message.
   #handleReply(data) {
-    this.printDevice('Received <b>com.versioduo.device</b> message');
+    this.printDevice('Received «com.versioduo.device» message');
 
     // Remember the token from the first reply.
     if (!this.#token && data['token'])
@@ -480,7 +480,7 @@ class V2Main extends V2Device {
 
     this.#timeout = setTimeout(() => {
       this.#timeout = null;
-      this.log.print('Unable to connect to device <b>' + device.name + '</b>');
+      this.log.print('Unable to connect to device «' + device.name + '»');
     }, 1000);
   }
 
@@ -489,7 +489,7 @@ class V2Main extends V2Device {
     if (!this.#data.system?.firmware?.download)
       return;
 
-    this.printDevice('Requesting firmware info: <b>' + this.#data.system.firmware.download + '/index.json</b>');
+    this.printDevice('Requesting firmware info: «' + this.#data.system.firmware.download + '/index.json»');
 
     fetch(this.#data.system.firmware.download + '/index.json', {
       cache: 'no-cache'
@@ -580,7 +580,7 @@ class V2Main extends V2Device {
   }
 
   #loadFirmware(filename) {
-    this.printDevice('Requesting firmware image: <b>' + filename + '</b>');
+    this.printDevice('Requesting firmware image: «' + filename + '»');
 
     fetch(filename, {
       cache: 'no-cache'
@@ -715,10 +715,10 @@ class V2Main extends V2Device {
       const backup = this.#data.system.hardware?.eeprom?.used ? ' Please backup the configuration before the installation.' : '';
 
       if (this.#data.system.hardware?.board && firmware.board !== this.#data.system.hardware.board)
-        this.#tabs.firmware.notify.error('The firmware update is for a different board which has the name <b>' + firmware.board + '</b>.');
+        this.#tabs.firmware.notify.error('The firmware update is for a different board which has the name «' + firmware.board + '».');
 
       else if (firmware.id !== this.#data.system.firmware.id)
-        this.#tabs.firmware.notify.warn('The firmware update appears to provide a different functionality, it has the name <b>' + firmware.id + '</b>.');
+        this.#tabs.firmware.notify.warn('The firmware update appears to provide a different functionality, it has the name «' + firmware.id + '».');
 
       else if (firmware.version < this.#data.metadata.version)
         this.#tabs.firmware.notify.warn('The firmware is older than the currently installed version.' + backup);
@@ -799,7 +799,7 @@ class V2Main extends V2Device {
 
       // Add our hash to the request; if the device has received
       // the correct image it copies it over and reboots.
-      this.printDevice('Firmware submitted. Requesting device update with hash <b>' + this.#tabs.firmware.update.hash + '</b>');
+      this.printDevice('Firmware submitted. Requesting device update with hash «' + this.#tabs.firmware.update.hash + '»');
       request.firmware.hash = this.#tabs.firmware.update.hash;
     }
 

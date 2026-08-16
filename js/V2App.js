@@ -335,7 +335,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--info');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 
@@ -343,7 +343,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--warn');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 
@@ -351,7 +351,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--error');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 }

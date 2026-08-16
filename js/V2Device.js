@@ -64,34 +64,29 @@ class V2Device extends V2AppSection {
     this.device = new V2MIDIDevice();
     this.device.addNotifier('note', (channel, note, velocity) => {
       if (velocity > 0)
-        this.print('Received <b>Note</b> <i>' + V2MIDI.Note.getName(note) + '(' + note +
-          ')</i> with velocity <i>' + velocity + '</i> on channel <i>#' + (channel + 1)) + '</i>';
+        this.print('Received NoteOn ' + V2MIDI.Note.getName(note) + '(' + note + ') with velocity ' + velocity + ' on channel #' + (channel + 1));
       else
-        this.print('Received <b>NoteOff</b> <i>' +
-          V2MIDI.Note.getName(note) + '(' + note + ')</i> on channel #' + (channel + 1));
+        this.print('Received NoteOff ' + V2MIDI.Note.getName(note) + '(' + note + ') on channel #' + (channel + 1));
     });
 
     this.device.addNotifier('noteOff', (channel, note, velocity) => {
-      this.print('Received <b>NoteOff</b> <i>' +
-        V2MIDI.Note.getName(note) + '(' + note + ')</i> with velocity <i>' + velocity + '</i> on channel #' + (channel + 1));
+      this.print('Received NoteOff ' + V2MIDI.Note.getName(note) + '(' + note + ') with velocity ' + velocity + ' on channel #' + (channel + 1));
     });
 
     this.device.addNotifier('aftertouch', (channel, note, pressure) => {
-      this.print('Received <b>Aftertouch</b> for note <i>' + V2MIDI.Note.getName(note) + '(' + note +
-        ')</i>' + ' with pressure <i>' + pressure + '</i> on channel <i>#' + (channel + 1) + '</i>');
+      this.print('Received Aftertouch for note ' + V2MIDI.Note.getName(note) + '(' + note + ')' + ' with pressure «' + pressure + '» on channel #' + (channel + 1));
     });
 
     this.device.addNotifier('controlChange', (channel, controller, value) => {
-      this.print('Received <b>ControlChange</b> <i>' + controller +
-        '</i> with value <i>' + value + '</i> on channel <i>#' + (channel + 1) + '</i>');
+      this.print('Received ControlChange ' + controller + ' with value ' + value + ' on channel #' + (channel + 1));
     });
 
     this.device.addNotifier('aftertouchChannel', (channel, pressure) => {
-      this.print('Received <b>Aftertouch Channel</b> with value <i>' + pressure + '</i> on channel <i>#' + (channel + 1) + '</i>');
+      this.print('Received AftertouchChannel with value ' + pressure + ' on channel #' + (channel + 1));
     });
 
     this.device.addNotifier('systemExclusive', (message) => {
-      this.printDevice('Received <b>SystemExclusive</b> length=' + message.length);
+      this.printDevice('Received SystemExclusive length=' + message.length);
     });
 
     this.midi.setup((error) => {
@@ -105,10 +100,10 @@ class V2Device extends V2AppSection {
       this.midi.addNotifier('state', (event) => {
         if (event) {
           if (event.port.type === 'input')
-            this.log.print('<b>' + event.port.name + '</b> (' + event.port.id + ':): Port is ' + event.port.state);
+            this.log.print('«' + event.port.name + '» (' + event.port.id + ':): Port is ' + event.port.state);
 
           else if (event.port.type === 'output')
-            this.log.print('<b>' + event.port.name + '</b> (:' + event.port.id + '): Port is ' + event.port.state);
+            this.log.print('«' + event.port.name + '» (:' + event.port.id + '): Port is ' + event.port.state);
 
           // Disconnect if the current device is unplugged.
           if (this.device.input === event.port && event.port.state === 'disconnected')
@@ -120,14 +115,14 @@ class V2Device extends V2AppSection {
 
       // Adding '?connect=<device name>' to the URL will try to connect to a device with the given name.
       if (app.url.connect) {
-        this.log.print('Found URL request to auto-connect to device: <b>' + app.url.connect + '</b>');
+        this.log.print('Found URL request to auto-connect to device: «' + app.url.connect + '»');
 
         const tryConnect = (device, portName = '') => {
           const name = app.url.connect + portName;
           if (name !== device.name)
             return false;
 
-          this.log.print('Trying to connect to <b>' + name + '</b> ...');
+          this.log.print('Trying to connect to «' + name + '» ...');
           this.connection.select.update(this.midi.getDevices('both'));
           this.connection.select.select(device);
           return true;
@@ -150,11 +145,11 @@ class V2Device extends V2AppSection {
   }
 
   print(line) {
-    this.log.print('<b>' + this.device.getName() + '</b>: ' + line);
+    this.log.print('«' + this.device.getName() + '»: ' + line);
   }
 
   printDevice(line) {
-    this.log.print('<b>' + this.device.getName() + '</b> (' + this.device.getID() + '): ' + line);
+    this.log.print('«' + this.device.getName() + '» (' + this.device.getID() + '): ' + line);
   }
 
   getDevice() {
@@ -167,65 +162,59 @@ class V2Device extends V2AppSection {
 
   // Print available MIDI ports. Their names might be different on different operating systems.
   printStatus() {
-    this.log.print(document.querySelector('meta[name="name"]').content + ', version <b>' + Number(document.querySelector('meta[name="version"]').content) + '</b>');
+    this.log.print(document.querySelector('meta[name="name"]').content + ', version ' + Number(document.querySelector('meta[name="version"]').content));
 
     for (const device of this.midi.getDevices().values()) {
       let what = (device.in && device.in === this.device.input) ? 'Connected to' : 'Found';
       if (device.in && device.out)
-        this.log.print(what + ' <b>' + device.in.name + '</b> (' + device.in.id + ':' + device.out.id + ')');
+        this.log.print(what + ' «' + device.in.name + '» (' + device.in.id + ':' + device.out.id + ')');
 
       else if (device.in)
-        this.log.print(what + ' <b>' + device.in.name + '</b> (' + device.in.id + ':)');
+        this.log.print(what + ' «' + device.in.name + '» (' + device.in.id + ':)');
 
       else if (device.out)
-        this.log.print(what + ' <b>' + device.out.name + '</b> (:' + device.out.id + ')');
+        this.log.print(what + ' «' + device.out.name + '» (:' + device.out.id + ')');
     }
   }
 
   sendNote(channel, note, velocity) {
     this.device.sendNote(channel, note, velocity);
-    this.print('Sending <b>Note</b> <i>' +
-      V2MIDI.Note.getName(note) + '(' + note + ')</i> with velocity <i>' + velocity + '</i> on channel #' + (channel + 1));
+    this.print('Sending NoteOn ' + V2MIDI.Note.getName(note) + '(' + note + ') with velocity ' + velocity + ' on channel #' + (channel + 1));
   }
 
   sendNoteOff(channel, note, velocity = 64) {
     this.device.sendNoteOff(channel, note, velocity);
-    this.print('Sending <b>NoteOff</b> <i>' +
-      V2MIDI.Note.getName(note) + '(' + note + ')</i> with velocity <i>' + velocity + '</i> on channel #' + (channel + 1));
+    this.print('Sending NoteOff ' + V2MIDI.Note.getName(note) + '(' + note + ') with velocity ' + velocity + ' on channel #' + (channel + 1));
   }
 
   sendControlChange(channel, controller, value) {
     this.device.sendControlChange(channel, controller, value);
-    this.print('Sending <b>Control Change</b> <i>#' + controller +
-      '</i> with value <i>' + value + '</i> on channel <i>#' + (channel + 1) + '</i>');
+    this.print('Sending ControlChange #' + controller + ' with value ' + value + ' on channel #' + (channel + 1));
   }
 
   sendProgramChange(channel, value) {
     this.device.sendProgramChange(channel, value);
-    this.print('Sending <b>Program Change</b> <i>#' + (value + 1) +
-      '</i> on channel <i>#' + (channel + 1) + '</i>');
+    this.print('Sending ProgramChange #' + (value + 1) + ' on channel #' + (channel + 1));
   }
 
   sendAftertouchChannel(channel, value) {
     this.device.sendAftertouchChannel(channel, value);
-    this.print('Sending <b>Aftertouch Channel</b> <i>#' + value +
-      '</i> on channel <i>#' + (channel + 1) + '</i>');
+    this.print('Sending AftertouchChannel #' + value + ' on channel #' + (channel + 1));
   }
 
   sendPitchBend(channel, value) {
     this.device.sendPitchBend(channel, value);
-    this.print('Sending <b>Pitch Bend</b> <i>#' + value +
-      '</i> on channel <i>#' + (channel + 1) + '</i>');
+    this.print('Sending PitchBend #' + value + ' on channel #' + (channel + 1));
   }
 
   sendSystemReset() {
     this.device.sendSystemReset();
-    this.print('Sending <b>SystemReset</b>');
+    this.print('Sending SystemReset');
   }
 
   sendSystemExclusive(message) {
     const length = this.device.sendSystemExclusive(message);
-    this.printDevice('Sending <b>SystemExclusive</b> length=' + length);
+    this.printDevice('Sending SystemExclusive length=' + length);
   }
 
   sendJSON(json) {
@@ -234,7 +223,7 @@ class V2Device extends V2AppSection {
       request = JSON.parse(json);
 
     } catch (error) {
-      this.printDevice('Unable to parse JSON string: <i>' + error.toString() + '</i>');
+      this.printDevice('Unable to parse JSON string: «' + error.toString() + '»');
       return;
     }
 
